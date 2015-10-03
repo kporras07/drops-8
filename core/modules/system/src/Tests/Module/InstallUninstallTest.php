@@ -16,7 +16,10 @@ use Drupal\Core\Logger\RfcLogLevel;
  */
 class InstallUninstallTest extends ModuleTestBase {
 
-  public static $modules = array('system_test', 'dblog', 'taxonomy');
+  /**
+   * {@inheritdoc}
+   */
+  public static $modules = array('system_test', 'dblog', 'taxonomy', 'update_test_postupdate');
 
   /**
    * Tests that a fixed set of modules can be installed and uninstalled.
@@ -77,7 +80,7 @@ class InstallUninstallTest extends ModuleTestBase {
       $edit = array();
       $package = $module->info['package'];
       $edit["modules[$package][$name][enable]"] = TRUE;
-      $this->drupalPostForm('admin/modules', $edit, t('Save configuration'));
+      $this->drupalPostForm('admin/modules', $edit, t('Install'));
 
       // Handle the case where modules were installed along with this one and
       // where we therefore hit a confirmation screen.
@@ -85,7 +88,16 @@ class InstallUninstallTest extends ModuleTestBase {
         $this->drupalPostForm(NULL, array(), t('Continue'));
       }
 
-      $this->assertText(t('The configuration options have been saved.'), 'Modules status has been updated.');
+      // List the module display names to check the confirmation message.
+      $module_names = array();
+      foreach ($modules_to_install as $module_to_install) {
+        $module_names[] = $all_modules[$module_to_install]->info['name'];
+      }
+      $expected_text = \Drupal::translation()->formatPlural(count($module_names), 'Module @name has been enabled.', '@count modules have been enabled: @names.', array(
+        '@name' => $module_names[0],
+        '@names' => implode(', ', $module_names),
+      ));
+      $this->assertText($expected_text, 'Modules status has been updated.');
 
       // Check that hook_modules_installed() was invoked with the expected list
       // of modules, that each module's database tables now exist, and that
@@ -96,6 +108,7 @@ class InstallUninstallTest extends ModuleTestBase {
         $this->assertModuleTablesExist($module_to_install);
         $this->assertModuleConfig($module_to_install);
         $this->assertLogMessage('system', "%module module installed.", array('%module' => $module_to_install), RfcLogLevel::INFO);
+        $this->assertInstallModuleUpdates($module_to_install);
       }
 
       // Uninstall the original module, and check appropriate
@@ -138,8 +151,8 @@ class InstallUninstallTest extends ModuleTestBase {
     foreach ($all_modules as $name => $module) {
       $edit['modules[' . $module->info['package'] . '][' . $name . '][enable]'] = TRUE;
     }
-    $this->drupalPostForm('admin/modules', $edit, t('Save configuration'));
-    $this->assertText(t('The configuration options have been saved.'), 'Modules status has been updated.');
+    $this->drupalPostForm('admin/modules', $edit, t('Install'));
+    $this->assertText(t('@count modules have been enabled: ', array('@count' => count($all_modules))), 'Modules status has been updated.');
   }
 
   /**
@@ -179,6 +192,59 @@ class InstallUninstallTest extends ModuleTestBase {
     $this->assertModuleTablesDoNotExist($module);
     // Check that the module's config files no longer exist.
     $this->assertNoModuleConfig($module);
+    $this->assertUninstallModuleUpdates($module);
+  }
+
+  /**
+   * Asserts the module post update functions after install.
+   *
+   * @param string $module
+   *   The module that got installed.
+   */
+  protected function assertInstallModuleUpdates($module) {
+    /** @var \Drupal\Core\Update\UpdateRegistry $post_update_registry */
+    $post_update_registry = \Drupal::service('update.post_update_registry');
+    $all_update_functions = $post_update_registry->getPendingUpdateFunctions();
+    $empty_result = TRUE;
+    foreach ($all_update_functions as $function) {
+      list($function_module, ) = explode('_post_update_', $function);
+      if ($module === $function_module) {
+        $empty_result = FALSE;
+        break;
+      }
+    }
+    $this->assertTrue($empty_result, 'Ensures that no pending post update functions are available.');
+
+    $existing_updates = \Drupal::keyValue('post_update')->get('existing_updates', []);
+    switch ($module) {
+      case 'block':
+        $this->assertFalse(array_diff(['block_post_update_disable_blocks_with_missing_contexts'], $existing_updates));
+        break;
+      case 'update_test_postupdate':
+        $this->assertFalse(array_diff(['update_test_postupdate_post_update_first', 'update_test_postupdate_post_update_second', 'update_test_postupdate_post_update_test1', 'update_test_postupdate_post_update_test0'], $existing_updates));
+        break;
+    }
+  }
+
+  /**
+   * Asserts the module post update functions after uninstall.
+   *
+   * @param string $module
+   *   The module that got installed.
+   */
+  protected function assertUninstallModuleUpdates($module) {
+    /** @var \Drupal\Core\Update\UpdateRegistry $post_update_registry */
+    $post_update_registry = \Drupal::service('update.post_update_registry');
+    $all_update_functions = $post_update_registry->getPendingUpdateFunctions();
+
+    switch ($module) {
+      case 'block':
+        $this->assertFalse(array_intersect(['block_post_update_disable_blocks_with_missing_contexts'], $all_update_functions), 'Asserts that no pending post update functions are available.');
+
+        $existing_updates = \Drupal::keyValue('post_update')->get('existing_updates', []);
+        $this->assertFalse(array_intersect(['block_post_update_disable_blocks_with_missing_contexts'], $existing_updates), 'Asserts that no post update functions are stored in keyvalue store.');
+        break;
+    }
   }
 
 }

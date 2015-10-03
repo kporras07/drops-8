@@ -79,7 +79,8 @@ class FeedViewBuilder extends EntityViewBuilder {
 
       if ($display->getComponent('description')) {
         $build[$id]['description'] = array(
-          '#markup' => aggregator_filter_xss($entity->getDescription()),
+          '#markup' => $entity->getDescription(),
+          '#allowed_tags' => _aggregator_allowed_tags(),
           '#prefix' => '<div class="feed-description">',
           '#suffix' => '</div>',
         );
@@ -113,7 +114,7 @@ class FeedViewBuilder extends EntityViewBuilder {
         $build[$id]['feed_icon'] = array(
           '#theme' => 'feed_icon',
           '#url' => $entity->getUrl(),
-          '#title' => t('!title feed', array('!title' => $entity->label())),
+          '#title' => t('@title feed', array('@title' => $entity->label())),
         );
       }
 

@@ -10,6 +10,7 @@ namespace Drupal\system_test\Controller;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\RendererInterface;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -101,7 +102,7 @@ class SystemTestController extends ControllerBase {
   public function drupalSetMessageTest() {
     // Set two messages.
     drupal_set_message('First message (removed).');
-    drupal_set_message('Second message (not removed).');
+    drupal_set_message(t('Second message with <em>markup!</em> (not removed).'));
 
     // Remove the first.
     unset($_SESSION['messages']['status'][0]);
@@ -112,6 +113,23 @@ class SystemTestController extends ControllerBase {
 
     drupal_set_message('Duplicated message', 'status', TRUE);
     drupal_set_message('Duplicated message', 'status', TRUE);
+
+    // Add a Markup message.
+    drupal_set_message(Markup::create('Markup with <em>markup!</em>'));
+    // Test duplicate Markup messages.
+    drupal_set_message(Markup::create('Markup with <em>markup!</em>'));
+    // Ensure that multiple Markup messages work.
+    drupal_set_message(Markup::create('SafeString2 with <em>markup!</em>'));
+
+    // Test mixing of types.
+    drupal_set_message(Markup::create('Non duplicate Markup / string.'));
+    drupal_set_message('Non duplicate Markup / string.');
+    drupal_set_message(Markup::create('Duplicate Markup / string.'), 'status', TRUE);
+    drupal_set_message('Duplicate Markup / string.', 'status', TRUE);
+
+    // Test auto-escape of non safe strings.
+    drupal_set_message('<em>This<span>markup will be</span> escaped</em>.');
+
     return [];
   }
 

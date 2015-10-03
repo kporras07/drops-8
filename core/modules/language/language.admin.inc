@@ -5,7 +5,6 @@
  * Administration functions for language.module.
  */
 
-use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\Url;
@@ -170,7 +169,7 @@ function template_preprocess_language_content_settings_table(&$variables) {
           'data' => array(
             '#prefix' => '<label>',
             '#suffix' => '</label>',
-            '#markup' => SafeMarkup::checkPlain($element[$bundle]['settings']['#label']),
+            '#plain_text' => $element[$bundle]['settings']['#label'],
           ),
           'class' => array('bundle'),
         ),
@@ -202,5 +201,5 @@ function template_preprocess_language_content_settings_table(&$variables) {
  * @ingroup themeable
  */
 function theme_language_content_settings_table($variables) {
-  return '<h4>' . $variables['build']['#title'] . '</h4>' . drupal_render($variables['build']);
+  return '<h4>' . theme_render_and_autoescape($variables['build']['#title']) . '</h4>' . theme_render_and_autoescape($variables['build']);
 }

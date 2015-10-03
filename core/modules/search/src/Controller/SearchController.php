@@ -75,6 +75,7 @@ class SearchController extends ControllerBase {
 
     // Build the form first, because it may redirect during the submit,
     // and we don't want to build the results based on last time's request.
+    $build['#cache']['contexts'][] = 'url.query_args:keys';
     if ($request->query->has('keys')) {
       $keys = trim($request->get('keys'));
       $plugin->setSearch($keys, $request->query->all(), $request->attributes->all());
@@ -136,8 +137,6 @@ class SearchController extends ControllerBase {
     $build['pager'] = array(
       '#type' => 'pager',
     );
-
-    $build['#attached']['library'][] = 'search/drupal.search.results';
 
     return $build;
   }

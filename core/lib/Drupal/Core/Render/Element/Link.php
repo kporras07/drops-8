@@ -10,6 +10,7 @@ namespace Drupal\Core\Render\Element;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Component\Utility\Html as HtmlUtility;
 use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Url as CoreUrl;
 
 /**
@@ -81,9 +82,9 @@ class Link extends RenderElement {
       $options = NestedArray::mergeDeep($element['#url']->getOptions(), $element['#options']);
       /** @var \Drupal\Core\Utility\LinkGenerator $link_generator */
       $link_generator = \Drupal::service('link_generator');
-      $generated_link = $link_generator->generate($element['#title'], $element['#url']->setOptions($options), TRUE);
+      $generated_link = $link_generator->generate($element['#title'], $element['#url']->setOptions($options));
       $element['#markup'] = $generated_link->getGeneratedLink();
-      $generated_link->merge(CacheableMetadata::createFromRenderArray($element))
+      $generated_link->merge(BubbleableMetadata::createFromRenderArray($element))
         ->applyTo($element);
     }
     return $element;

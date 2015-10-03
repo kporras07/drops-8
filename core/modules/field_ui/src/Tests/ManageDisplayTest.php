@@ -163,6 +163,11 @@ class ManageDisplayTest extends WebTestBase {
     $edit = array('fields[field_test][type]' => 'field_no_settings', 'refresh_rows' => 'field_test');
     $this->drupalPostAjaxForm(NULL, $edit, array('op' => t('Refresh')));
     $this->assertFieldByName('field_test_settings_edit');
+
+    // Make sure we can save the third party settings when there are no settings available
+    $this->drupalPostAjaxForm(NULL, array(), "field_test_settings_edit");
+    $this->drupalPostAjaxForm(NULL, $edit, "field_test_plugin_settings_update");
+
     // Uninstall the module providing third party settings and ensure the button
     // is no longer there.
     \Drupal::service('module_installer')->uninstall(array('field_third_party_test'));
@@ -383,7 +388,7 @@ class ManageDisplayTest extends WebTestBase {
     ))->save();
 
     $this->drupalGet('admin/structure/types/manage/no_fields/display');
-    $this->assertRaw(t('There are no fields yet added. You can add new fields on the <a href="@link">Manage fields</a> page.', array('@link' => \Drupal::url('entity.node.field_ui_fields', array('node_type' => 'no_fields')))));
+    $this->assertRaw(t('There are no fields yet added. You can add new fields on the <a href=":link">Manage fields</a> page.', array(':link' => \Drupal::url('entity.node.field_ui_fields', array('node_type' => 'no_fields')))));
   }
 
   /**

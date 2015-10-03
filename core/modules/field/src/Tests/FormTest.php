@@ -7,7 +7,7 @@
 
 namespace Drupal\field\Tests;
 
-use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Form\FormState;
 use Drupal\field\Entity\FieldConfig;
@@ -105,7 +105,7 @@ class FormTest extends FieldTestBase {
     $this->drupalGet('entity_test/add');
 
     // Create token value expected for description.
-    $token_description = SafeMarkup::checkPlain($this->config('system.site')->get('name')) . '_description';
+    $token_description = Html::escape($this->config('system.site')->get('name')) . '_description';
     $this->assertText($token_description, 'Token replacement for description is displayed');
     $this->assertFieldByName("{$field_name}[0][value]", '', 'Widget is displayed');
     $this->assertNoField("{$field_name}[1][value]", 'No extraneous widget is displayed');
@@ -208,7 +208,7 @@ class FormTest extends FieldTestBase {
     // Submit with missing required value.
     $edit = array();
     $this->drupalPostForm('entity_test/add', $edit, t('Save'));
-    $this->assertRaw(t('!name field is required.', array('!name' => $this->field['label'])), 'Required field with no value fails validation');
+    $this->assertRaw(t('@name field is required.', array('@name' => $this->field['label'])), 'Required field with no value fails validation');
 
     // Create an entity
     $value = mt_rand(1, 127);
@@ -228,7 +228,7 @@ class FormTest extends FieldTestBase {
       "{$field_name}[0][value]" => $value,
     );
     $this->drupalPostForm('entity_test/manage/' . $id, $edit, t('Save'));
-    $this->assertRaw(t('!name field is required.', array('!name' => $this->field['label'])), 'Required field with no value fails validation');
+    $this->assertRaw(t('@name field is required.', array('@name' => $this->field['label'])), 'Required field with no value fails validation');
   }
 
 //  function testFieldFormMultiple() {
@@ -334,12 +334,12 @@ class FormTest extends FieldTestBase {
     // Display creation form -> 1 widget.
     $this->drupalGet('entity_test/add');
     // Check that the Required symbol is present for the multifield label.
-    $this->assertRaw(SafeMarkup::format('<h4 class="label form-required">@label</h4>', array('@label' => $this->field['label'])),
-        'Required symbol added field label.');
+    $element = $this->xpath('//h4[contains(@class, "label") and contains(@class, "js-form-required") and contains(text(), :value)]', array(':value' => $this->field['label']));
+    $this->assertTrue(isset($element[0]), 'Required symbol added field label.');
     // Check that the label of the field input is visually hidden and contains
     // the field title and an indication of the delta for a11y.
-    $this->assertRaw(SafeMarkup::format('<label for="edit-field-unlimited-0-value" class="visually-hidden form-required">@label (value 1)</label>', array('@label' => $this->field['label'])),
-        'Required symbol not added for field input.');
+    $element = $this->xpath('//label[@for=:for and contains(@class, "js-form-required") and contains(text(), :value)]', array(':for' => 'edit-field-unlimited-0-value', ':value' => $this->field['label'] . ' (value 1)'));
+    $this->assertTrue(isset($element[0]), 'Required symbol not added for field input.');
   }
 
   /**
@@ -613,7 +613,7 @@ class FormTest extends FieldTestBase {
 
     // Update the field to remove the default value, and switch to the default
     // widget.
-    $this->field->default_value = array();
+    $this->field->setDefaultValue(array());
     $this->field->save();
     entity_get_form_display($entity_type, $this->field->getTargetBundle(), 'default')
       ->setComponent($this->field->getName(), array(

@@ -7,17 +7,21 @@
 
 namespace Drupal\content_translation\Tests;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Url;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\Component\Utility\SafeMarkup;
+use Drupal\system\Tests\Cache\AssertPageCacheContextsAndTagsTrait;
 
 /**
  * Tests the Content Translation UI.
  */
 abstract class ContentTranslationUITestBase extends ContentTranslationTestBase {
+
+  use AssertPageCacheContextsAndTagsTrait;
 
   /**
    * The id of the entity being translated.
@@ -34,6 +38,23 @@ abstract class ContentTranslationUITestBase extends ContentTranslationTestBase {
   protected $testLanguageSelector = TRUE;
 
   /**
+   * Flag that tells whether the HTML escaping of all languages works or not
+   * after SafeMarkup change.
+   *
+   * @var bool
+   */
+  protected $testHTMLEscapeForAllLanguages = FALSE;
+
+  /**
+   * Default cache contexts expected on a non-translated entity.
+   *
+   * Cache contexts will not be checked if this list is empty.
+   *
+   * @var string[]
+   */
+  protected $defaultCacheContexts = ['languages:language_interface', 'theme', 'url.query_args:_wrapper_format', 'user.permissions'];
+
+  /**
    * Tests the basic translation UI.
    */
   function testTranslationUI() {
@@ -44,6 +65,7 @@ abstract class ContentTranslationUITestBase extends ContentTranslationTestBase {
     $this->doTestAuthoringInfo();
     $this->doTestTranslationEdit();
     $this->doTestTranslationChanged();
+    $this->doTestChangedTimeAfterSaveWithoutChanges();
     $this->doTestTranslationDeletion();
   }
 
@@ -64,6 +86,11 @@ abstract class ContentTranslationUITestBase extends ContentTranslationTestBase {
     $this->assertTrue($entity, 'Entity found in the database.');
     $this->drupalGet($entity->urlInfo());
     $this->assertResponse(200, 'Entity URL is valid.');
+
+    // Ensure that the content language cache context is not yet added to the
+    // page.
+    $this->assertCacheContexts($this->defaultCacheContexts);
+
     $this->drupalGet($entity->urlInfo('drupal:content-translation-overview'));
     $this->assertNoText('Source language', 'Source language column correctly hidden.');
 
@@ -87,9 +114,21 @@ abstract class ContentTranslationUITestBase extends ContentTranslationTestBase {
     ], array('language' => $language));
     $this->drupalPostForm($add_url, $this->getEditValues($values, $langcode), $this->getFormSubmitActionForNewTranslation($entity, $langcode));
 
-    // Get the entity and reset its cache, so that the new translation gets the
-    // updated values.
+    // Assert that HTML is escaped in "all languages" in UI after SafeMarkup
+    // change.
+    if ($this->testHTMLEscapeForAllLanguages) {
+      $this->assertNoRaw('&lt;span class=&quot;translation-entity-all-languages&quot;&gt;(all languages)&lt;/span&gt;');
+      $this->assertRaw('<span class="translation-entity-all-languages">(all languages)</span>');
+    }
+
+    // Ensure that the content language cache context is not yet added to the
+    // page.
     $entity = entity_load($this->entityTypeId, $this->entityId, TRUE);
+    $this->drupalGet($entity->urlInfo());
+    $this->assertCacheContexts(Cache::mergeContexts(['languages:language_content'], $this->defaultCacheContexts));
+
+    // Reset the cache of the entity, so that the new translation gets the
+    // updated values.
     $metadata_source_translation = $this->manager->getTranslationMetadata($entity->getTranslation($default_langcode));
     $metadata_target_translation = $this->manager->getTranslationMetadata($entity->getTranslation($langcode));
 
@@ -505,6 +544,32 @@ abstract class ContentTranslationUITestBase extends ContentTranslationTestBase {
           'All timestamps from all languages are identical.'
         );
       }
+    }
+  }
+
+  /**
+   * Test the changed time after API and FORM save without changes.
+   */
+  public function doTestChangedTimeAfterSaveWithoutChanges() {
+    $entity = entity_load($this->entityTypeId, $this->entityId, TRUE);
+    // Test only entities, which implement the EntityChangedInterface.
+    if ($entity->getEntityType()->isSubclassOf('Drupal\Core\Entity\EntityChangedInterface')) {
+      $changed_timestamp = $entity->getChangedTime();
+
+      $entity->save();
+      $entity = entity_load($this->entityTypeId, $this->entityId, TRUE);
+      $this->assertEqual($changed_timestamp, $entity->getChangedTime(), 'The entity\'s changed time wasn\'t updated after API save without changes.');
+
+      // Ensure different save timestamps.
+      sleep(1);
+
+      // Save the entity on the regular edit form.
+      $language = $entity->language();
+      $edit_path = $entity->urlInfo('edit-form', array('language' => $language));
+      $this->drupalPostForm($edit_path, [], $this->getFormSubmitAction($entity, $language->getId()));
+
+      $entity = entity_load($this->entityTypeId, $this->entityId, TRUE);
+      $this->assertNotEqual($changed_timestamp, $entity->getChangedTime(), 'The entity\'s changed time was updated after form save without changes.');
     }
   }
 

@@ -40,10 +40,10 @@ class TimestampAgoFormatter extends FormatterBase implements ContainerFactoryPlu
   protected $dateFormatter;
 
   /**
-    * The current Request object.
-    *
-    * @var \Symfony\Component\HttpFoundation\Request
-    */
+   * The current Request object.
+   *
+   * @var \Symfony\Component\HttpFoundation\Request
+   */
   protected $request;
 
   /**
@@ -153,7 +153,7 @@ class TimestampAgoFormatter extends FormatterBase implements ContainerFactoryPlu
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items) {
+  public function viewElements(FieldItemListInterface $items, $langcode) {
     $elements = array();
 
     foreach ($items as $delta => $item) {

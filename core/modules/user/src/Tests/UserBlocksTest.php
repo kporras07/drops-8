@@ -7,7 +7,6 @@
 
 namespace Drupal\user\Tests;
 
-use Drupal\Component\Utility\SafeMarkup;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -40,6 +39,30 @@ class UserBlocksTest extends WebTestBase {
     $this->drupalLogout($this->adminUser);
   }
 
+   /**
+    * Tests that user login block is hidden from user/login.
+    */
+  function testUserLoginBlockVisibility() {
+    // Array keyed list where key being the URL address and value being expected
+    // visibility as boolean type.
+    $paths = [
+      'node' => TRUE,
+      'user/login' => FALSE,
+      'user/register' => TRUE,
+      'user/password' => TRUE,
+    ];
+    foreach ($paths as $path => $expected_visibility) {
+      $this->drupalGet($path);
+      $elements = $this->xpath('//div[contains(@class,"block-user-login-block") and @role="form"]');
+      if ($expected_visibility) {
+        $this->assertTrue(!empty($elements), 'User login block in path "' . $path . '" should be visible');
+     }
+      else {
+        $this->assertTrue(empty($elements), 'User login block in path "' . $path . '" should not be visible');
+      }
+    }
+  }
+
   /**
    * Test the user login block.
    */
@@ -49,9 +72,8 @@ class UserBlocksTest extends WebTestBase {
     $edit['name'] = $this->randomMachineName();
     $edit['pass'] = $this->randomMachineName();
     $this->drupalPostForm('node', $edit, t('Log in'));
-    $this->assertRaw(\Drupal::translation()->formatPlural(1, '1 error has been found: !errors', '@count errors have been found: !errors', [
-      '!errors' => SafeMarkup::set('<a href="#edit-name">Username</a>')
-    ]));
+    $this->assertRaw('1 error has been found:');
+    $this->assertRaw('<a href="#edit-name">Username</a>');
     $this->assertText(t('Sorry, unrecognized username or password.'));
 
     // Create a user with some permission that anonymous users lack.

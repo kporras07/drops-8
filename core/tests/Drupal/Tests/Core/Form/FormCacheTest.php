@@ -427,7 +427,9 @@ class FormCacheTest extends UnitTestCase {
    * @covers ::setCache
    */
   public function testSetCacheWithSafeStrings() {
-    SafeMarkup::set('a_safe_string');
+    SafeMarkup::setMultiple([
+      'a_safe_string' => ['html' => TRUE],
+    ]);
     $form_build_id = 'the_form_build_id';
     $form = [
       '#form_id' => 'the_form_id'
